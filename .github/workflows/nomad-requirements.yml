@@ -1,0 +1,62 @@
+name: NOMAD dependencies compatibility
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    # Run workflow only when there are changes in pyproject.toml
+    paths:
+      - "pyproject.toml"
+
+jobs:
+  validate_dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Extract project name
+        id: project_name
+        run: |
+          project_name=$(grep '^name = ' pyproject.toml | awk -F' = ' '{print $2}' | tr -d '"')
+          echo "::set-output name=PROJECT_NAME::$project_name"
+
+      - name: Checkout nomad-distro from GitLab
+        run: |
+          git clone --depth 1 --branch main --recurse-submodules https://gitlab.mpcdf.mpg.de/nomad-lab/nomad-distro.git nomad
+          git submodule update --init --recursive --depth 1
+
+      - name: Replace this project in NOMAD pyproject.toml
+        working-directory: ./nomad
+        run: |
+          project_name="${{ steps.project_name.outputs.PROJECT_NAME }}"
+          sed -i "/^name = \"$project_name\"/d" pyproject.toml
+          line_num=$(awk '/\[project.optional-dependencies\]/{print NR; exit}' pyproject.toml)
+          project_url="git+https://github.com/${{ github.repository }}.git@${{ github.head_ref || github.ref_name }}"
+          sed -i "$((line_num + 1))a\  \"${project_name} @ ${project_url}\"," pyproject.toml
+
+      - name: Verify file update
+        working-directory: ./nomad
+        run: cat pyproject.toml
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - uses: hynek/setup-cached-uv@v1
+
+      - name: Generate lock file from modified pyproject.toml
+        working-directory: ./nomad
+        run: |
+          ./scripts/generate_python_dependencies.sh
+
+      - name: Install NOMAD dependencies new dependency from current branch
+        working-directory: ./nomad
+        run: |
+          uv venv
+          uv pip install ".[plugins]" -c requirements-dev.txt
