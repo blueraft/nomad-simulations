@@ -30,14 +30,15 @@ jobs:
           git clone --depth 1 --branch main --recurse-submodules https://gitlab.mpcdf.mpg.de/nomad-lab/nomad-distro.git nomad
           git submodule update --init --recursive --depth 1
 
-      - name: Replace this project in NOMAD pyproject.toml
+      - name: Replace project in pyproject.toml
         working-directory: ./nomad
         run: |
           project_name="${{ steps.project_name.outputs.PROJECT_NAME }}"
           sed -i "/^name = \"$project_name\"/d" pyproject.toml
           line_num=$(awk '/\[project.optional-dependencies\]/{print NR; exit}' pyproject.toml)
-          project_url="git+https://github.com/${{ github.repository }}.git@${{ github.head_ref || github.ref_name }}"
-          sed -i "$((line_num + 1))a\  \"${project_name} @ ${project_url}\"," pyproject.toml
+          project_url="${project_name} @ git+https://github.com/${{ github.repository }}.git@${{ github.head_ref || github.ref_name }}"
+          project_url=$(echo "$project_url" | tr -d "\"'")
+          sed -i "$((line_num + 1))a\  \"${project_url}\"," pyproject.toml
 
       - name: Verify file update
         working-directory: ./nomad
