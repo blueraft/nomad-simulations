@@ -3,10 +3,10 @@ name: NOMAD dependencies compatibility
 on:
   push:
     branches:
-      - main
+      - develop
   pull_request:
     branches:
-      - main
+      - develop
     # Run workflow only when there are changes in pyproject.toml
     paths:
       - "pyproject.toml"
