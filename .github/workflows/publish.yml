@@ -4,19 +4,48 @@
 name: Upload Python Package
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
 jobs:
-  # publish-to-pypi:
+  publish-to-gitlab-pypi:
+    name: >-
+      Publish distribution to GitLab PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install pypa/build and twine
+        run: >-
+          python3 -m
+          pip install
+          build twine
+          --user
+      - name: Build a binary wheel and a source tarball
+        run: python3 -m build
+      - name: Publish distribution  to GitLab PyPI
+        env:
+          TWINE_PASSWORD: ${{ secrets.GITLAB_TWINE_PASSWORD }}
+          TWINE_USERNAME: ${{ secrets.GITLAB_TWINE_USERNAME }}
+          TWINE_REPOSITORY_URL: https://gitlab.mpcdf.mpg.de/api/v4/projects/10765/packages/pypi
+        run: python3 -m twine upload dist/*
+
+  # github-release:
   #   name: >-
-  #     Publish distribution to PyPI
+  #     Sign the Python distribution with Sigstore
+  #     and upload them to GitHub Release
   #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/p/nomad-simulations
   #   permissions:
-  #     id-token: write # IMPORTANT: mandatory for trusted publishing
+  #     contents: write # IMPORTANT: mandatory for making GitHub Releases
+  #     id-token: write # IMPORTANT: mandatory for sigstore
   #
   #   steps:
   #     - uses: actions/checkout@v4
@@ -32,53 +61,27 @@ jobs:
   #         --user
   #     - name: Build a binary wheel and a source tarball
   #       run: python3 -m build
-  #     - name: Publish distribution  to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-
-  github-release:
-    name: >-
-      Sign the Python distribution with Sigstore
-      and upload them to GitHub Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # IMPORTANT: mandatory for making GitHub Releases
-      id-token: write # IMPORTANT: mandatory for sigstore
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-      - name: Install pypa/build
-        run: >-
-          python3 -m
-          pip install
-          build
-          --user
-      - name: Build a binary wheel and a source tarball
-        run: python3 -m build
-      - name: Sign the dists with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v1.2.3
-        with:
-          inputs: >-
-            ./dist/*.tar.gz
-            ./dist/*.whl
-      - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create
-          '${{ github.ref_name }}'
-          --repo '${{ github.repository }}'
-          --notes ""
-      - name: Upload artifact signatures to GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        # Upload to GitHub Release using the `gh` CLI.
-        # `dist/` contains the built packages, and the
-        # sigstore-produced signatures and certificates.
-        run: >-
-          gh release upload
-          '${{ github.ref_name }}' dist/**
-          --repo '${{ github.repository }}'
+  #     - name: Sign the dists with Sigstore
+  #       uses: sigstore/gh-action-sigstore-python@v1.2.3
+  #       with:
+  #         inputs: >-
+  #           ./dist/*.tar.gz
+  #           ./dist/*.whl
+  #     - name: Create GitHub Release
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       run: >-
+  #         gh release create
+  #         '${{ github.ref_name }}'
+  #         --repo '${{ github.repository }}'
+  #         --notes ""
+  #     - name: Upload artifact signatures to GitHub Release
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       # Upload to GitHub Release using the `gh` CLI.
+  #       # `dist/` contains the built packages, and the
+  #       # sigstore-produced signatures and certificates.
+  #       run: >-
+  #         gh release upload
+  #         '${{ github.ref_name }}' dist/**
+  #         --repo '${{ github.repository }}'# Upload python package to pypi server and github release.
