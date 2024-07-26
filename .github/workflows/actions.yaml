@@ -9,20 +9,24 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  UV_INDEX_URL: https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple
+  UV_SYSTEM_PYTHON: 1
+
 jobs:
   install-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
+      - uses: hynek/setup-cached-uv@v2
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip install -e '.[dev]' --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple --system
-          uv pip install coveralls --system
+          uv pip install -e '.[dev]'
+          uv pip install coveralls
       - name: mypy
         run: |
           python -m mypy --ignore-missing-imports --follow-imports=silent --no-strict-optional src/nomad_simulations tests
@@ -43,31 +47,30 @@ jobs:
   build-and-install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
+      - uses: hynek/setup-cached-uv@v2
       - name: Build the package
         run: |
-          pip install uv
-          uv pip install --upgrade pip --system
-          uv pip install build --system
+          uv pip install build
           python -m build --sdist
       - name: Install the package
         run: |
-          uv pip install dist/*.tar.gz --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple --system
+          uv pip install dist/*.tar.gz
   ruff-linting:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - uses: chartboost/ruff-action@v1
-          with:
-            args: "check ."
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chartboost/ruff-action@v1
+        with:
+          args: "check ."
   ruff-formatting:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - uses: chartboost/ruff-action@v1
-          with:
-            args: "format . --check --verbose"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chartboost/ruff-action@v1
+        with:
+          args: "format . --check --verbose"
